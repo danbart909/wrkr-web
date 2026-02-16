@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Divider,
   IconButton,
@@ -29,38 +29,44 @@ import {
   where,
 } from "firebase/firestore";
 
-import Link from "next/link";
-
 type JobListItem = {
   id: string;
   title?: string;
-  tip?: number;
-  pay?: number;
+
+  tip?: number; // preferred
+  pay?: number; // legacy fallback
+
   standingOffer?: boolean;
   address?: string;
   zip?: string;
+
   creationDate?: any;
   endDate?: any;
 };
 
-function formatMoney(n?: number) {
-  if (typeof n !== "number" || Number.isNaN(n)) return "";
+function normalize(s: unknown) {
+  return typeof s === "string" ? s.trim() : "";
+}
+
+function tipOf(job: JobListItem): number {
+  const t = typeof job.tip === "number" ? job.tip : undefined;
+  const p = typeof job.pay === "number" ? job.pay : undefined;
+  return t ?? p ?? 0;
+}
+
+function formatMoney(n: number) {
+  if (!Number.isFinite(n)) return "";
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }
 
-function formatDateMaybe(ts: any) {
-  // supports Firestore Timestamp or Date-like
+function tsToDate(ts: any): Date | null {
   try {
-    const d =
-      ts?.toDate?.() instanceof Date
-        ? ts.toDate()
-        : ts instanceof Date
-        ? ts
-        : null;
-    if (!d) return "";
-    return d.toLocaleDateString();
+    if (!ts) return null;
+    if (typeof ts.toDate === "function") return ts.toDate();
+    if (ts instanceof Date) return ts;
+    return null;
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -109,19 +115,19 @@ function MyJobsInner() {
   }, [uid]);
 
   useEffect(() => {
-    let active = true;
+    let cancelled = false;
 
     (async () => {
       try {
         setLoading(true);
         await fetchJobs();
       } finally {
-        if (active) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
-      active = false;
+      cancelled = true;
     };
   }, [fetchJobs]);
 
@@ -184,62 +190,80 @@ function MyJobsInner() {
           ) : (
             <Stack spacing={2}>
               {jobs.map((job) => {
-                const tipValue = typeof job.tip === "number" ? job.tip : job.pay;
-                const money = formatMoney(tipValue);
-                const created = formatDateMaybe(job.creationDate);
-                const end = formatDateMaybe(job.endDate);
+                const tip = tipOf(job);
+                const money = tip ? formatMoney(tip) : "";
+                const created = tsToDate(job.creationDate);
+                const end = tsToDate(job.endDate);
 
                 return (
-                  <Paper
+                  <Link
                     key={job.id}
-                    variant="outlined"
-                    sx={{ p: 2, borderRadius: 3 }}
+                    href={`/jobs/${job.id}`}
+                    style={{ textDecoration: "none", color: "inherit" }}
                   >
-                    <Stack spacing={1}>
-                      <Stack direction="row" justifyContent="space-between" spacing={2}>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography fontWeight={800} noWrap>
-                            {job.title ?? "Untitled job"}
-                          </Typography>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        "&:active": { transform: "scale(0.99)" },
+                      }}
+                    >
+                      <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={800} noWrap>
+                              {job.title ?? "Untitled job"}
+                            </Typography>
 
+                            <Typography variant="body2" color="text.secondary">
+                              {normalize(job.address)
+                                ? `${normalize(job.address)}${
+                                    normalize(job.zip) ? ` • ${normalize(job.zip)}` : ""
+                                  }`
+                                : normalize(job.zip)}
+                            </Typography>
+                          </Box>
+
+                          {/* Delete icon: prevent navigation */}
+                          <IconButton
+                            aria-label="Delete job"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onDeleteJob(job.id, job.title);
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Stack>
+
+                        <Divider />
+
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Typography variant="body2" color="text.secondary">
-                            {job.address
-                              ? `${job.address}${job.zip ? ` • ${job.zip}` : ""}`
-                              : job.zip
-                              ? job.zip
-                              : ""}
+                            {created ? `Posted ${created.toLocaleDateString()}` : "Posted"}
                           </Typography>
-                        </Box>
 
-                        <IconButton
-                          aria-label="Delete job"
-                          onClick={() => onDeleteJob(job.id, job.title)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
+                          <Box sx={{ textAlign: "right" }}>
+                            <Typography fontWeight={900}>{money}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Tip
+                            </Typography>
+                          </Box>
+                        </Stack>
 
-                      <Divider />
-
-                      <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" color="text.secondary">
-                          {created ? `Posted ${created}` : "Posted"}
-                        </Typography>
-
-                        <Typography fontWeight={800}>
-                          {money || ""}
+                          {job.standingOffer
+                            ? "Standing offer"
+                            : end
+                            ? `Ends ${end.toLocaleDateString()}`
+                            : "No end date"}
                         </Typography>
                       </Stack>
-
-                      <Typography variant="body2" color="text.secondary">
-                        {job.standingOffer
-                          ? "Standing offer"
-                          : end
-                          ? `Ends ${end}`
-                          : "No end date"}
-                      </Typography>
-                    </Stack>
-                  </Paper>
+                    </Paper>
+                  </Link>
                 );
               })}
             </Stack>
