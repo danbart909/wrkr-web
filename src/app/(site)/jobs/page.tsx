@@ -469,13 +469,13 @@ export default function JobsPage() {
             fullWidth
           />
 
-          <TextField
+          {/* <TextField
             label="ZIP (job ZIP filter, optional)"
             value={zipFilter}
             onChange={(e) => setZipFilter(e.target.value)}
             fullWidth
             inputMode="numeric"
-          />
+          /> */}
 
           <FormControl fullWidth>
             <InputLabel id="sort-label">Sort</InputLabel>

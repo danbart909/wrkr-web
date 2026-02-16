@@ -28,6 +28,10 @@ type JobDoc = {
   address?: string;
   zip?: string;
 
+  // Contact (new)
+  contactEmail?: string;
+  contactPhone?: string;
+
   tip?: number;
   pay?: number; // legacy
 
@@ -35,7 +39,10 @@ type JobDoc = {
   endDate?: any;
   creationDate?: any;
 
-  location?: { latitude: number; longitude: number } | { lat: number; lng: number } | any;
+  location?:
+    | { latitude: number; longitude: number }
+    | { lat: number; lng: number }
+    | any;
   latitude?: number;
   longitude?: number;
   lat?: number;
@@ -77,7 +84,10 @@ export default function JobDetailsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [busyDelete, setBusyDelete] = useState(false);
-  const [snack, setSnack] = useState<{ open: boolean; msg: string }>({ open: false, msg: "" });
+  const [snack, setSnack] = useState<{ open: boolean; msg: string }>({
+    open: false,
+    msg: "",
+  });
 
   const isOwner = useMemo(() => {
     if (!user || !job) return false;
@@ -130,7 +140,6 @@ export default function JobDetailsPage() {
     try {
       await deleteDoc(doc(db, "jobs", id));
       setSnack({ open: true, msg: "Job deleted." });
-      // go back to My Jobs (or jobs list)
       router.push("/my-jobs");
     } catch (e: any) {
       setSnack({ open: true, msg: e?.message ?? "Failed to delete job." });
@@ -138,6 +147,10 @@ export default function JobDetailsPage() {
       setBusyDelete(false);
     }
   };
+
+  const contactEmail = normalize(job?.contactEmail);
+  const contactPhone = normalize(job?.contactPhone);
+  const hasContact = !!contactEmail || !!contactPhone;
 
   return (
     <>
@@ -167,7 +180,9 @@ export default function JobDetailsPage() {
 
                 <Typography variant="body2" color="text.secondary">
                   {normalize(job.address)
-                    ? `${normalize(job.address)}${normalize(job.zip) ? ` • ${normalize(job.zip)}` : ""}`
+                    ? `${normalize(job.address)}${
+                        normalize(job.zip) ? ` • ${normalize(job.zip)}` : ""
+                      }`
                     : normalize(job.zip)}
                 </Typography>
               </Stack>
@@ -182,7 +197,9 @@ export default function JobDetailsPage() {
               >
                 <Stack direction="row" justifyContent="space-between">
                   <Typography fontWeight={800}>Tip</Typography>
-                  <Typography fontWeight={900}>{formatMoney(tipOf(job))}</Typography>
+                  <Typography fontWeight={900}>
+                    {formatMoney(tipOf(job))}
+                  </Typography>
                 </Stack>
 
                 <Divider sx={{ my: 1.5 }} />
@@ -202,6 +219,34 @@ export default function JobDetailsPage() {
                   </Typography>
                 </Stack>
               </Box>
+
+              {/* Contact section (new) */}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Typography fontWeight={800} sx={{ mb: 1 }}>
+                  Contact
+                </Typography>
+
+                {hasContact ? (
+                  <Stack spacing={0.75}>
+                    {contactEmail && (
+                      <Typography variant="body2" color="text.secondary">
+                        Email:{" "}
+                        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+                      </Typography>
+                    )}
+                    {contactPhone && (
+                      <Typography variant="body2" color="text.secondary">
+                        Phone:{" "}
+                        <a href={`tel:${contactPhone}`}>{contactPhone}</a>
+                      </Typography>
+                    )}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No contact info provided.
+                  </Typography>
+                )}
+              </Paper>
 
               {normalize(job.description) && (
                 <Box>
