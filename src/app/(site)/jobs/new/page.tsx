@@ -63,7 +63,7 @@ function NewJobInner() {
   // Profile gate (like mobile app: require profile info before posting)
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>({
     state: "loading",
-  });https://1337x.to/search/dracula/1/
+  });
 
   useEffect(() => {
   // Autofill once, but don't overwrite if user already typed something
